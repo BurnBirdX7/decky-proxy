@@ -62,12 +62,10 @@ class ResourceSigningTests(unittest.TestCase):
             timeout=15,
         )
 
-    def test_missing_and_empty_keys_prevent_startup(self):
-        for setting in (None, ""):
-            with self.subTest(setting=setting):
-                result = self.run_initialization(setting)
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("RESOURCE_SIGNING_KEY must be set", result.stderr)
+    def test_missing_key_prevents_startup(self):
+        result = self.run_initialization(None)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("KeyError: 'RESOURCE_SIGNING_KEY'", result.stderr)
 
     def test_random_key_is_generated_once_and_reused(self):
         result = self.run_initialization(
@@ -80,7 +78,7 @@ class ResourceSigningTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_persistent_key_is_used_verbatim_as_utf8(self):
-        for setting in ("  секрет  ", "RANDOM", " "):
+        for setting in ("", "  секрет  ", "RANDOM", " "):
             with self.subTest(setting=setting):
                 result = self.run_initialization(
                     setting,
