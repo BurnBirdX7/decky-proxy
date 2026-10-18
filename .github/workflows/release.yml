@@ -1,0 +1,72 @@
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Prepare release
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9
+
+      - name: Setup Commitizen
+        uses: commitizen-tools/setup-cz@main
+
+      - name: Dependencies & tests
+        # language=sh
+        run: |
+          uv sync --locked
+          uv run --locked python -m unittest discover -v
+
+      - name: Bump version
+        id: bump
+        shell: bash
+        # language=sh
+        run: |
+          status=0
+          cz bump --yes || status=$?
+      
+          case "$status" in
+            0)    echo "changed=true" >> "$GITHUB_OUTPUT" ;;
+            3|21) echo "changed=false" >> "$GITHUB_OUTPUT" ;;
+            *)    exit "$status" ;;
+          esac
+
+      - name: Build
+        if: steps.bump.outputs.changed == 'true'
+        # language=sh
+        run: |
+          uv build --wheel
+          uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file dist/requirements.txt
+
+      - name: Push
+        if: steps.bump.outputs.changed == 'true'
+        run: git push --atomic --tags
+
+      - name: Create Release
+        if: steps.bump.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # language=sh
+        run: |
+          TAG=$(cz version -p --tag)
+          gh release create "$TAG" \
+            dist/* \
+            --verify-tag \
+            --title "$TAG"
