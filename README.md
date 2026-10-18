@@ -16,7 +16,7 @@ Catalogue CORS allows `https://steamloopback.host`, `GET`, and the
 
 ### Store API
 
-Proxies the Decky Store API at `TARGET_STORE_DOMAIN`:
+Proxies the Decky Store API using the catalogue endpoint configured in `STORE_URL`:
 
 - `GET /plugins` — relay the catalogue and substitute resource URLs.
 - `POST /plugins/{plugin_name}/versions/{version_name}/increment` — relay installation statistics.
@@ -33,7 +33,7 @@ The proxy's response always contains an `artifact` string:
 
 ### Resources API
 
-- `GET /resources/hash/{hash}` — retrieve `https://${TARGET_CDN_DOMAIN}/file/steam-deck-homebrew/versions/${hash}.zip`.
+- `GET /resources/hash/{hash}` — retrieve `https://cdn.tzatzikiweeb.moe/file/steam-deck-homebrew/versions/${hash}.zip`.
 - `GET /resources/base64/{base64url}.{signature}` — verify the signature, decode the complete original URL and relay that resource.
 
 Catalogue links carry a 22-character signature (HMAC-SHA256 truncated to 16 bytes).
@@ -46,20 +46,18 @@ resource streaming begins terminate the stream; the upstream response is closed.
 
 ## Environment variables
 
-All four variables are required. The Python application loads `.env` from the current working directory; existing environment variables take precedence. The three domain values are hostnames without a scheme or path.
+All three variables are required. The Python application loads `.env` from the current working directory; existing environment variables take precedence. `DOMAIN` is a hostname without a scheme or path. `STORE_URL` is the complete catalogue URL, without a query, fragment, or trailing slash.
 
 | Variable               | Example                | Purpose                                                |
 |------------------------|------------------------|--------------------------------------------------------|
 | `DOMAIN`               | `decky.example.com`    | Public proxy domain                                    |
-| `TARGET_STORE_DOMAIN`  | `plugins.deckbrew.xyz` | Upstream Decky store domain                            |
-| `TARGET_CDN_DOMAIN`    | `cdn.tzatzikiweeb.moe` | Upstream CDN domain                                    |
+| `STORE_URL`            | `https://plugins.deckbrew.xyz/plugins` | Upstream catalogue endpoint               |
 | `RESOURCE_SIGNING_KEY` | `random`               | Resource link signing secret or random key per process |
 
 Example `.env`:
 ```dotenv
 DOMAIN=decky.example.com
-TARGET_STORE_DOMAIN=plugins.deckbrew.xyz
-TARGET_CDN_DOMAIN=cdn.tzatzikiweeb.moe
+STORE_URL=https://plugins.deckbrew.xyz/plugins
 RESOURCE_SIGNING_KEY=random
 ```
 

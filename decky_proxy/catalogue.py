@@ -77,6 +77,6 @@ def validate_archive_hash(archive_hash: str) -> None:
         raise InvalidResourceError("Expected a SHA-256 archive hash")
 
 
-def build_archive_url(archive_hash: str, cdn_domain: str) -> URL:
+def build_archive_url(archive_hash: str) -> URL:
     validate_archive_hash(archive_hash)
-    return parse_url(f"https://{cdn_domain}/file/steam-deck-homebrew/versions/{archive_hash}.zip")
+    return parse_url(f"https://cdn.tzatzikiweeb.moe/file/steam-deck-homebrew/versions/{archive_hash}.zip")

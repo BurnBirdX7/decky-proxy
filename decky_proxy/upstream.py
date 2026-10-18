@@ -59,7 +59,7 @@ class UpstreamClient:
         self.via = f"{http_version} {constants.DOMAIN}"
 
     async def get_catalogue(self, parameters: dict[str, str | list[str]], decky_version: str | None) -> StoreResponse:
-        url = parse_url(f"https://{constants.TARGET_STORE_DOMAIN}/plugins").with_query(parameters)
+        url = parse_url(constants.STORE_URL).with_query(parameters)
         headers = {"X-Decky-Version": decky_version} if decky_version is not None else {}
         return await self.__fetch_buffered("GET", url, headers)
 
@@ -97,7 +97,7 @@ class UpstreamClient:
     @staticmethod
     def __build_increment_url(plugin_name: str, version_name: str, is_update: bool) -> URL:
         url = parse_url(
-            f"https://{constants.TARGET_STORE_DOMAIN}/plugins/{quote(plugin_name, safe='')}"
+            f"{constants.STORE_URL}/{quote(plugin_name, safe='')}"
             f"/versions/{quote(version_name, safe='')}/increment"
         )
         return url.with_query({"isUpdate": str(is_update).lower()})

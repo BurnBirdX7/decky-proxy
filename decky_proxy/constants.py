@@ -10,5 +10,4 @@ VERSION = version("decky-proxy")
 
 RESOURCE_SIGNING_KEY = os.environ["RESOURCE_SIGNING_KEY"]  # set to non-empty string or `random`
 DOMAIN = os.environ["DOMAIN"]
-TARGET_STORE_DOMAIN = os.environ["TARGET_STORE_DOMAIN"]
-TARGET_CDN_DOMAIN = os.environ["TARGET_CDN_DOMAIN"]
+STORE_URL = os.environ["STORE_URL"]

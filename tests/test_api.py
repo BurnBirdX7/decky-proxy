@@ -140,7 +140,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.content, archive)
         self.assertEqual(
             str(self.session.requests[0].url),
-            "https://cdn.example/file/steam-deck-homebrew/versions/" + ARCHIVE_HASH + ".zip",
+            "https://cdn.tzatzikiweeb.moe/file/steam-deck-homebrew/versions/" + ARCHIVE_HASH + ".zip",
         )
         self.assertTrue(reply.closed)
 

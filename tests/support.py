@@ -12,8 +12,7 @@ ARTIFACT_URL = "https://downloads.example/custom.zip?signature=a%2Bb&path=x%2Fy&
 TEST_ENVIRONMENT = {
     "RESOURCE_SIGNING_KEY": "test-resource-signing-key",
     "DOMAIN": "proxy.example",
-    "TARGET_STORE_DOMAIN": "store.example",
-    "TARGET_CDN_DOMAIN": "cdn.example",
+    "STORE_URL": "https://store.example/custom/catalogue",
 }
 
 
