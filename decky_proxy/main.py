@@ -97,7 +97,7 @@ async def increment(
 @limiter.limit(RATE_LIMIT)
 async def resource_by_hash(request: Request, hash: str, client: Client) -> StreamingResponse:
     """Relay the archive at the upstream CDN's hash-derived URL."""
-    destination_url = build_archive_url(hash, constants.TARGET_CDN_DOMAIN)
+    destination_url = build_archive_url(hash)
     return ResourceStreamingResponse(await client.get_resource_with_redirects(destination_url))
 
 

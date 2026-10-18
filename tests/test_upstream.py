@@ -45,7 +45,7 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
         }
         await UpstreamClient(session, http_version="1.1").get_catalogue(parameters, "3.2.0")
         request = session.requests[0]
-        self.assertEqual(request.url.host, "store.example")
+        self.assertEqual(str(request.url.with_query(None)), "https://store.example/custom/catalogue")
         self.assertEqual(request.url.query.getall("tags"), ["one", "two,three"])
         self.assertEqual(request.options["headers"], {"X-Decky-Version": "3.2.0", "Via": "1.1 proxy.example"})
         self.assertFalse(request.options["allow_redirects"])
@@ -55,8 +55,11 @@ class UpstreamTests(unittest.IsolatedAsyncioTestCase):
         await UpstreamClient(session, http_version="1.1").post_install_increment("Plugin & тест", "1.0+test", False)
         request = session.requests[0]
         self.assertEqual(request.method, "POST")
-        self.assertIn("Plugin%20%26%20%D1%82%D0%B5%D1%81%D1%82", request.url.raw_path)
-        self.assertIn("1.0%2Btest", request.url.raw_path)
+        self.assertEqual(
+            str(request.url.with_query(None)),
+            "https://store.example/custom/catalogue/Plugin%20%26%20%D1%82%D0%B5%D1%81%D1%82"
+            "/versions/1.0%2Btest/increment",
+        )
         self.assertEqual(request.url.query["isUpdate"], "false")
         self.assertNotIn("data", request.options)
 
