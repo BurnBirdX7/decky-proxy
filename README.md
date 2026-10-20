@@ -5,66 +5,54 @@ A simple proxy for the Decky Plugin Store catalogue and resources.
 
 ## API structure
 
-`GET /` serves a small information page with the version and links to the
-repository, API documentation, and plugin catalogue.
+`GET /` serves a small info page with useful links and proxy config information.
 
-Interactive API documentation: http://127.0.0.1:8000/docs
-OpenAPI schema: http://127.0.0.1:8000/openapi.json
+`GET /docs` serves the Swagger UI page for the API.
 
-Catalogue CORS allows `https://steamloopback.host`, `GET`, and the
-`X-Decky-Version` header. Preflight requests are handled by the CORS middleware.
 
 ### Store API
 
-Proxies the Decky Store API using the catalogue endpoint configured in `STORE_URL`:
-
 - `GET /plugins` — relay the catalogue and substitute resource URLs.
-- `POST /plugins/{plugin_name}/versions/{version_name}/increment` — relay installation statistics.
+  > **The proxy modifies the response**.
+  > All artifact and image URLs are replaced with links to the proxy's _Resource API_.
+  > For plugin versions whose `artifact` field is missing or `null`, the proxy generates an artifact URL from the version's hash.
+  > 
+  > This is needed to direct resource traffic through the proxy.
 
-See the [API of the official store](docs/DECKY_STORE_API.md) and the
-[API consumed by the Decky client](docs/DECKY_CLIENT_API.md).
-The proxy's response always contains an `artifact` string:
+- `POST /plugins/{plugin_name}/versions/{version_name}/increment` — relay installation statistics.\
+  > Forwards the plugin name, version, and `isUpdate` flag to the upstream store.
 
-| Upstream value                       | Proxy URL                                                      |
-|--------------------------------------|----------------------------------------------------------------|
-| `artifact` missing or `null`         | `https://${DOMAIN}/resources/hash/${version.hash}`             |
-| `artifact` contains an explicit URL  | `https://${DOMAIN}/resources/base64/${base64url}.${signature}` |
-| `image_url` contains an explicit URL | `https://${DOMAIN}/resources/base64/${base64url}.${signature}` |
+### Resource API
 
-### Resources API
+- `GET /resources/hash/{hash}` — retrieve the artifact by hash from the default Decky CDN.
+  > This endpoint is used when the upstream store omits the `artifact` field or sets it to `null`.
+  > The version's hash is used to identify the artifact on the CDN.
+  > 
+  > The proxy uses the same URL pattern as Decky Loader for retrieving plugin artifacts:\
+  > `https://cdn.tzatzikiweeb.moe/file/steam-deck-homebrew/versions/${hash}.zip` 
 
-- `GET /resources/hash/{hash}` — retrieve `https://cdn.tzatzikiweeb.moe/file/steam-deck-homebrew/versions/${hash}.zip`.
-- `GET /resources/base64/{base64url}.{signature}` — verify the signature, decode the complete original URL and relay that resource.
+- `GET /resources/base64/{base64url}.{signature}` — retrieve an artifact or image from its original URL.
+  > When the upstream store returns an artifact or image URL, the proxy encodes it using Base64URL, signs the encoded value with a secret key, and builds a resource URL for this endpoint.
+  > 
+  > **Why sign the URL?** To prevent third parties from using this server to fetch arbitrary URLs, including bots routing GET requests through it to hide their own IP addresses.
+  > Signing restricts this endpoint to resource URLs that the proxy received from the upstream catalogue.
 
-Catalogue links carry a 22-character signature (HMAC-SHA256 truncated to 16 bytes).
-Unsigned links and invalid signatures return `403` without contacting upstream.
-Links have no expiry; changing the signing key invalidates previously issued links.
-This feature prevents the service from being used as an arbitrary-destination proxy.
+### CORS
 
-Upstream HTTP statuses and relevant response headers are relayed. Failures after
-resource streaming begins terminate the stream; the upstream response is closed.
+For all endpoints, CORS allows the origin `https://steamloopback.host`, the `GET` method, and the `X-Decky-Version` header.
+
 
 ## Environment variables
 
-All three variables are required. The Python application loads `.env` from the current working directory; existing environment variables take precedence. `DOMAIN` is a hostname without a scheme or path. `STORE_URL` is the complete catalogue URL, without a query, fragment, or trailing slash.
+All three variables are required. The Python application loads `.env` from the current working directory; existing environment variables take precedence.
 
-| Variable               | Example                | Purpose                                                |
-|------------------------|------------------------|--------------------------------------------------------|
-| `DOMAIN`               | `decky.example.com`    | Public proxy domain                                    |
-| `STORE_URL`            | `https://plugins.deckbrew.xyz/plugins` | Upstream catalogue endpoint               |
-| `RESOURCE_SIGNING_KEY` | `random`               | Resource link signing secret or random key per process |
+| Variable               | Example                                | Contents                                                                                     | Purpose                     |
+|------------------------|----------------------------------------|----------------------------------------------------------------------------------------------|-----------------------------|
+| `DOMAIN`               | `decky.example.com`                    | Hostname without a scheme or path                                                            | Public proxy domain         |
+| `STORE_URL`            | `https://plugins.deckbrew.xyz/plugins` | Absolute HTTP(S) catalogue URL without credentials, a query, a fragment, or a trailing slash | Upstream catalogue endpoint |
+| `RESOURCE_SIGNING_KEY` | `random`, `0bf7ac39b5a4e7bf815e617e`   | A secret string, or the word `random` to generate a new key on every server start            | Resource URL signing key    |
 
-Example `.env`:
-```dotenv
-DOMAIN=decky.example.com
-STORE_URL=https://plugins.deckbrew.xyz/plugins
-RESOURCE_SIGNING_KEY=random
-```
-
-Set `RESOURCE_SIGNING_KEY=random` to generate a new key once per process start;
-previous links stop working after a restart and clients must refresh the catalogue.
-Any other nonempty value is used verbatim as a persistent UTF-8 secret, keeping
-links valid across restarts while that key remains unchanged.
+With `random`, previously generated resource links stop working after a restart; clients must refresh the catalogue to obtain new links. To keep links valid across restarts, configure a fixed secret.
 
 ## Development
 
