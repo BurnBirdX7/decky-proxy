@@ -2,7 +2,7 @@
 
 This document describes the public plugin requests made by Decky Loader and the response data it consumes.
 
-Source project: [SteamDeckHomebrew/decky-loader](https://github.com/SteamDeckHomebrew/decky-loader). Branch: `main`. Commit: [`75563316f9119ee7e36be7f43885be65e877fad0`](https://github.com/SteamDeckHomebrew/decky-loader/commit/75563316f9119ee7e36be7f43885be65e877fad0). Checked: 2026-10-10.
+Source project: [SteamDeckHomebrew/decky-loader](https://github.com/SteamDeckHomebrew/decky-loader). Branch: `main`. Commit: [`00cd202872b85868071b041c8f1b34e734147195`](https://github.com/SteamDeckHomebrew/decky-loader/commit/00cd202872b85868071b041c8f1b34e734147195). Checked: 2026-10-21.
 
 ## Configuring the catalog endpoint
 
@@ -10,16 +10,16 @@ Source project: [SteamDeckHomebrew/decky-loader](https://github.com/SteamDeckHom
 |---------|----------------------------------------|
 | Default | `https://plugins.deckbrew.xyz/plugins` |
 | Testing | `https://testing.deckbrew.xyz/plugins` |
-| Custom  | The configured `store_url`             |
+| Custom  | The configured `store-url` setting     |
 
-The custom URL is the **complete catalog endpoint**, including its path. The increment endpoint has no separate setting.
+The custom URL is the **complete catalog endpoint**, including its path. The versions and increment endpoints have no separate settings. `{store_url}` below refers to the selected catalog URL.
 
 ## Forming endpoint URLs
 
 Decky uses string concatenation to form **request URLs**. For catalog requests it always adds a `?` after the configured `store_url`.
 Consequently, custom catalog URLs containing:
-- a query (`?`) or fragment (`#`) produce incorrect endpoint strings for **catalog** and **increment** paths.
-- a trailing `/` produce a double slash in the **increment** path.
+- a query (`?`) or fragment (`#`) produce incorrect endpoint strings for **catalog**, **versions**, and **increment** paths.
+- a trailing `/` produce a double slash in the **versions** and **increment** paths.
 
 Archive and image URLs come from catalog data. A present, non-null `artifact` is used directly.
 When it is absent or null, Decky uses the version hash as a ZIP filename under the hardcoded CDN base `https://cdn.tzatzikiweeb.moe/file/steam-deck-homebrew/versions/`, independently of the configured catalog endpoint. An empty string does not trigger this fallback.
@@ -42,7 +42,7 @@ No request body is sent.
 | `sort_by`        | `name`, `date`, or `downloads` | Catalog ordering   |
 | `sort_direction` | `asc` or `desc`                | Ordering direction |
 
-The initial browse request sends `sort_by=name&sort_direction=asc`. Changing the sort selection requests the catalog again. Update checks omit both parameters.
+The initial browse request sends `sort_by=name&sort_direction=asc`. Changing the sort selection requests the catalog again. Reinstallation from the installed-plugin list omits both parameters. Update checks use the versions endpoint instead.
 
 ### Response
 
@@ -72,6 +72,38 @@ A JSON array of plugin objects is expected. The schema below uses type placehold
 
 `artifact` is optional. It is absent from the official Store response schema and lets custom stores supply archive URLs.
 
+## GET — Latest plugin versions
+
+### Request
+
+**Request string**: `{store_url}/versions`
+
+No query parameters or request body are sent.
+
+| Header            | Type   | Meaning                                                                                    |
+|-------------------|--------|--------------------------------------------------------------------------------------------|
+| `X-Decky-Version` | String | Current Decky Loader version. The only custom header explicitly supplied for this request. |
+
+### Response
+
+A JSON object keyed by exact plugin name is expected. Each value contains the latest version name and archive hash, with an optional third element for a custom-store archive URL. The schema below uses type placeholders and comments; it is not a literal JSON response.
+
+```typescript
+{
+  [plugin_name: string]: [
+    version: string,     // Latest version label.
+    hash: string,        // Archive SHA-256 digest.
+    artifact?: string   // Optional custom-store archive URL.
+  ];
+}
+```
+
+The official Store emits only the first two elements. An absent or null third element selects the same hardcoded CDN fallback as catalog versions; an empty string does not. A null response or a missing plugin entry produces no update for that plugin.
+
+The client matches installed plugins by name and offers an update only when both version labels pass `compare-versions` validation and the remote version is greater. A missing installed version is compared as `0.0.0`.
+
+Both catalog and versions requests decode the response as JSON without checking the HTTP status. The Store's plain-text `426` response for an unsupported Loader version therefore fails JSON decoding.
+
 ## POST — Increment stats
 
 ### Request
@@ -88,7 +120,11 @@ Request string: `{store_url}/{plugin_name}/versions/{version_name}/increment?{qu
 |-----------------|-----------------------------|------------------------------------------------------------------------------------------------------------------|
 | `isUpdate`      | Boolean (`True` or `False`) | Whether the requested plugin was already installed. Reinstalls and downgrades of an existing plugin send `True`. |
 
-No custom headers, explicit content type, or request body are supplied.
+| Header            | Type   | Meaning                       |
+|-------------------|--------|-------------------------------|
+| `X-Decky-Version` | String | Current Decky Loader version. |
+
+No explicit content type or request body is supplied.
 
 The POST is sent after the remote archive download attempt, before archive availability and hash checks, extraction, or installation success. A non-200 archive response can still result in an increment attempt. Local `file://` installations skip it.
 

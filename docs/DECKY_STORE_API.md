@@ -2,7 +2,7 @@
 
 This document describes pinned source behavior; deployment behavior was not verified.
 
-Source project: [SteamDeckHomebrew/decky-plugin-store](https://github.com/SteamDeckHomebrew/decky-plugin-store/tree/8c41c90438f4c1c60256a12e3c2472112660914e). Branch: `main`. Commit: `8c41c90438f4c1c60256a12e3c2472112660914e`. Checked: 2026-10-10.
+Source project: [SteamDeckHomebrew/decky-plugin-store](https://github.com/SteamDeckHomebrew/decky-plugin-store/tree/1899e87ad2ba13eb1f390f51cfcb7ba5850f345b). Branch: `main`. Commit: `1899e87ad2ba13eb1f390f51cfcb7ba5850f345b`. Checked: 2026-10-21.
 
 ## GET /plugins
 
@@ -15,27 +15,26 @@ Accept: application/json
 
 **Important headers**
 
-| Header   | Required | Meaning                                        |
-|----------|----------|------------------------------------------------|
-| `Accept` | No       | `application/json` is suitable for the catalog |
+| Header            | Required | Meaning                                        |
+|-------------------|----------|------------------------------------------------|
+| `Accept`          | No       | `application/json` is suitable for the catalog |
+| `X-Decky-Version` | No       | Loader version used by the version gate        |
 
-No custom header is required.
+No custom header is required. Across all API routes, a supplied `X-Decky-Version` beginning with lowercase `v` is parsed as SemVer after stripping whitespace and leading `v` characters. Versions below `3.3.0` are rejected with `426`, except versions with the same major, minor, and patch as `3.3.0`, so `v3.3.0-pre1` is accepted. Missing, unprefixed, or unparsable values pass the version gate.
 
 **Query parameters**
 
-| Parameter        | Type                           | Required | Default      | Meaning                                                                                          |
-|------------------|--------------------------------|----------|--------------|--------------------------------------------------------------------------------------------------|
-| `query`          | String                         | No       | Empty string | Case-insensitive substring match against plugin name only                                        |
-| `tags`           | Repeated strings               | No       | Empty list   | **Has no effect**. Repeated and comma-separated values are accepted                              |
-| `hidden`         | Boolean                        | No       | `false`      | Selects visible plugins when false and _hidden plugins only_ when true                           |
-| `sort_by`        | `name`, `date`, or `downloads` | No       | Omitted      | Selects name, earliest version creation time, or aggregate downloads; omission selects plugin ID |
-| `sort_direction` | `desc` or `asc`                | No       | `desc`       | `desc` for descending sort, `asc` - for ascending.                                               |
+| Parameter        | Type                           | Required | Default      | Meaning                                                                                                  |
+|------------------|--------------------------------|----------|--------------|----------------------------------------------------------------------------------------------------------|
+| `query`          | String                         | No       | Empty string | SQL `LIKE '%{query}%'` against plugin name only; case-sensitive on PostgreSQL; `%` and `_` are wildcards |
+| `tags`           | Repeated strings               | No       | Empty list   | Requires every supplied tag; repeated and comma-separated values are accepted; empty values are ignored  |
+| `hidden`         | Boolean                        | No       | `false`      | Selects visible plugins when false and all plugins, including hidden ones, when true                     |
+| `sort_by`        | `name`, `date`, or `downloads` | No       | Omitted      | Selects name, earliest version creation time, or aggregate downloads; omission selects plugin ID         |
+| `sort_direction` | `desc` or `asc`                | No       | `asc`        | `desc` for descending sort, `asc` - for ascending.                                                       |
 
 No request body.
 
 **Notes**
-
-`sort_direction` is reversed in the referenced commit; this is reported fixed in the deployed service.
 
 CORS permits the browser origin `https://steamloopback.host`, credentials, all methods and request headers, and exposes all response headers.
 
@@ -90,6 +89,61 @@ An empty `versions` array is permitted.
 
 Invalid query parameter values produce FastAPI's standard validation error response. See [FastAPI request validation errors](https://fastapi.tiangolo.com/tutorial/handling-errors/#override-request-validation-exceptions).
 
+#### 426 - Unsupported Loader version
+
+The version gate rejects the request before the endpoint runs. `Content-Type` is `text/plain; charset=utf-8`, and the body is `Unsupported loader version, please upgrade.`.
+
+## GET /plugins/versions
+
+### Request
+
+```http
+GET /plugins/versions
+Accept: application/json
+X-Decky-Version: v3.3.0
+```
+
+**Important headers**
+
+| Header            | Required | Meaning                                              |
+|-------------------|----------|------------------------------------------------------|
+| `Accept`          | No       | `application/json` is suitable for the response      |
+| `X-Decky-Version` | No       | Subject to the same version gate as `GET /plugins`   |
+
+No custom header is required. No query parameters or request body are defined. Catalog filters and sorting parameters do not apply.
+
+**Notes**
+
+CORS permits the browser origin `https://steamloopback.host`, credentials, all methods and request headers, and exposes all response headers.
+
+### Response
+
+#### 200 - Latest plugin versions
+
+**Important headers**
+
+| Header         | Meaning            |
+|----------------|--------------------|
+| `Content-Type` | `application/json` |
+
+**Schema**
+
+The body is an object keyed by exact plugin name. Each value is a two-element array containing the latest version name and package hash. The schema below uses type placeholders; it is not a literal JSON response.
+
+```typescript
+{
+  [plugin_name: string]: [version: string, hash: string];
+}
+```
+
+**Notes**
+
+Visible and hidden plugins are included. Plugins without versions are omitted; no rows return `{}`. The latest version is selected by creation time descending, then version ID ascending, rather than by semantic-version comparison. No archive URL is emitted. The response model permits `null`, although the current database implementation returns an object.
+
+#### 426 - Unsupported Loader version
+
+The version gate returns the same plain-text response as `GET /plugins`.
+
 ## POST /plugins/{plugin_name}/versions/{version_name}/increment
 
 ### Request
@@ -103,6 +157,7 @@ POST /plugins/Example/versions/1.0.0/increment?isUpdate=false
 | Header             | Required | Meaning                                                                                             |
 |--------------------|----------|-----------------------------------------------------------------------------------------------------|
 | `cf-connecting-ip` | No       | Used as client IP for rate limiting when present; otherwise the connection's client address is used |
+| `X-Decky-Version`  | No       | Subject to the same version gate as `GET /plugins`                                                  |
 
 No custom header is required. No `Content-Type` header is needed.
 
@@ -131,7 +186,7 @@ CORS permits the browser origin `https://steamloopback.host`, credentials, all m
 
 #### 200 - Counter incremented
 
-The requested version's update or download counter was incremented according to `isUpdate`. A subsequent catalog response may not immediately reflect the increment.
+The requested version's update or download counter was incremented according to `isUpdate`. Subsequent catalog requests read the counters from the database.
 
 #### 404 - Plugin or version not found
 
@@ -144,3 +199,7 @@ The allowance is exhausted. This response can also occur for an unknown version.
 #### 422 - Invalid query parameter
 
 Invalid query parameter values produce FastAPI's standard validation error response. See [FastAPI request validation errors](https://fastapi.tiangolo.com/tutorial/handling-errors/#override-request-validation-exceptions).
+
+#### 426 - Unsupported Loader version
+
+The version gate returns the same plain-text response as `GET /plugins`, before incrementing a counter or consuming the rate allowance.
