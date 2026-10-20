@@ -4,6 +4,13 @@ This document describes pinned source behavior; deployment behavior was not veri
 
 Source project: [SteamDeckHomebrew/decky-plugin-store](https://github.com/SteamDeckHomebrew/decky-plugin-store/tree/1899e87ad2ba13eb1f390f51cfcb7ba5850f345b). Branch: `main`. Commit: `1899e87ad2ba13eb1f390f51cfcb7ba5850f345b`. Checked: 2026-10-21.
 
+**Version Rejection Note**:
+Across all API routes, a supplied `X-Decky-Version` beginning with lowercase `v` is parsed as SemVer after stripping whitespace and leading `v` characters.
+Versions below `3.3.0` are rejected with code `426`. Pre-releases of `3.3.0`, such as `v3.3.0-pre1`, are exempt.
+Missing, unprefixed, or unparsable values pass the version gate.
+Rejection occurs before the endpoint runs, without incrementing a counter or consuming the rate allowance.
+`Content-Type` is `text/plain; charset=utf-8`, and the body is `Unsupported loader version, please upgrade.`.
+
 ## GET /plugins
 
 ### Request
@@ -20,7 +27,7 @@ Accept: application/json
 | `Accept`          | No       | `application/json` is suitable for the catalog |
 | `X-Decky-Version` | No       | Loader version used by the version gate        |
 
-No custom header is required. Across all API routes, a supplied `X-Decky-Version` beginning with lowercase `v` is parsed as SemVer after stripping whitespace and leading `v` characters. Versions below `3.3.0` are rejected with `426`, except versions with the same major, minor, and patch as `3.3.0`, so `v3.3.0-pre1` is accepted. Missing, unprefixed, or unparsable values pass the version gate.
+No custom header is required.
 
 **Query parameters**
 
@@ -83,10 +90,6 @@ An empty `versions` array is permitted.
 
 Invalid query parameter values produce FastAPI's standard validation error response. See [FastAPI request validation errors](https://fastapi.tiangolo.com/tutorial/handling-errors/#override-request-validation-exceptions).
 
-#### 426 - Unsupported Loader version
-
-The version gate rejects the request before the endpoint runs. `Content-Type` is `text/plain; charset=utf-8`, and the body is `Unsupported loader version, please upgrade.`.
-
 ## GET /plugins/versions
 
 ### Request
@@ -102,7 +105,7 @@ X-Decky-Version: v3.3.0
 | Header            | Required | Meaning                                              |
 |-------------------|----------|------------------------------------------------------|
 | `Accept`          | No       | `application/json` is suitable for the response      |
-| `X-Decky-Version` | No       | Subject to the same version gate as `GET /plugins`   |
+| `X-Decky-Version` | No       | Loader version used by the version gate              |
 
 No custom header is required. No query parameters or request body are defined. Catalog filters and sorting parameters do not apply.
 
@@ -134,10 +137,6 @@ type Response = {
 
 Visible and hidden plugins are included. Plugins without versions are omitted; no rows return `{}`. The latest version is selected by creation time descending, then version ID ascending, rather than by semantic-version comparison. No archive URL is emitted. The response model permits `null`, although the current database implementation returns an object.
 
-#### 426 - Unsupported Loader version
-
-The version gate returns the same plain-text response as `GET /plugins`.
-
 ## POST /plugins/{plugin_name}/versions/{version_name}/increment
 
 ### Request
@@ -151,7 +150,7 @@ POST /plugins/Example/versions/1.0.0/increment?isUpdate=false
 | Header             | Required | Meaning                                                                                             |
 |--------------------|----------|-----------------------------------------------------------------------------------------------------|
 | `cf-connecting-ip` | No       | Used as client IP for rate limiting when present; otherwise the connection's client address is used |
-| `X-Decky-Version`  | No       | Subject to the same version gate as `GET /plugins`                                                  |
+| `X-Decky-Version`  | No       | Loader version used by the version gate                                                             |
 
 No custom header is required. No `Content-Type` header is needed.
 
@@ -193,7 +192,3 @@ The allowance is exhausted. This response can also occur for an unknown version.
 #### 422 - Invalid query parameter
 
 Invalid query parameter values produce FastAPI's standard validation error response. See [FastAPI request validation errors](https://fastapi.tiangolo.com/tutorial/handling-errors/#override-request-validation-exceptions).
-
-#### 426 - Unsupported Loader version
-
-The version gate returns the same plain-text response as `GET /plugins`, before incrementing a counter or consuming the rate allowance.

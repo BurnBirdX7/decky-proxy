@@ -4,6 +4,10 @@ This document describes the public plugin requests made by Decky Loader and the 
 
 Source project: [SteamDeckHomebrew/decky-loader](https://github.com/SteamDeckHomebrew/decky-loader). Branch: `main`. Commit: [`00cd202872b85868071b041c8f1b34e734147195`](https://github.com/SteamDeckHomebrew/decky-loader/commit/00cd202872b85868071b041c8f1b34e734147195). Checked: 2026-10-21.
 
+**Version Rejection Note**:
+Both catalog and versions requests decode the response as JSON without checking the HTTP status.
+The Store's plain-text `426` response for an unsupported Loader version therefore fails JSON decoding.
+
 ## Configuring the catalog endpoint
 
 | Channel | Catalog endpoint                       |
@@ -95,8 +99,6 @@ type Response = {
 The official Store emits only the first two elements. An absent or null third element selects the same hardcoded CDN fallback as catalog versions; an empty string does not. A null response or a missing plugin entry produces no update for that plugin.
 
 The client matches installed plugins by name and offers an update only when both version labels pass `compare-versions` validation and the remote version is greater. A missing installed version is compared as `0.0.0`.
-
-Both catalog and versions requests decode the response as JSON without checking the HTTP status. The Store's plain-text `426` response for an unsupported Loader version therefore fails JSON decoding.
 
 ## POST — Increment stats
 
