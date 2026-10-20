@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
@@ -42,6 +43,8 @@ RESOURCE_RESPONSE_HEADERS = STORE_RESPONSE_HEADERS + (
     "accept-ranges",
 )
 
+logger = logging.getLogger("uvicorn.error")
+logger.setLevel(logging.INFO)
 
 @dataclass(frozen=True)
 class StoreResponse:
@@ -85,6 +88,7 @@ class UpstreamClient:
             ) as response:
                 response_headers = _select_headers(response, STORE_RESPONSE_HEADERS)
                 response_content = await response.read()
+                logger.info("Upstream response: url=%s status=%s", response.url, response.status)
                 return StoreResponse(response.status, response_content, response_headers)
 
     async def __fetch_streaming(self, url: URL) -> aiohttp.ClientResponse:
