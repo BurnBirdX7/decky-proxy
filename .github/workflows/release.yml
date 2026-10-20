@@ -57,7 +57,7 @@ jobs:
 
       - name: Push
         if: steps.bump.outputs.changed == 'true'
-        run: git push --atomic --tags
+        run: git push --atomic --tags origin HEAD:main
 
       - name: Create Release
         if: steps.bump.outputs.changed == 'true'
