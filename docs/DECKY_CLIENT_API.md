@@ -46,28 +46,22 @@ The initial browse request sends `sort_by=name&sort_direction=asc`. Changing the
 
 ### Response
 
-A JSON array of plugin objects is expected. The schema below uses type placeholders and comments; it is not a literal JSON response.
+A JSON array of plugin objects is expected. The schema below is a TypeScript type declaration, not a literal JSON response.
 
 ```typescript
-[
-  {
-    "id": number,                   // Plugin identifier.
-    "name": string,                 // Plugin name used for installation and matching.
-    "author": string,
-    "description": string,
-    "tags": [string],               // The exact tag "root" triggers a full-access warning.
-    "image_url": string,            // Plugin image address.
-    "versions": [                   // Latest/default version first.
-      { 
-        "name": string,             // Version label.
-        "hash": string,             // Archive SHA-256 digest.
-        "artifact": string | null   // Optional; absent/null selects fallback.
-      },
-      // ...
-    ]
-  },
-  // ...
-]
+type Response = {
+  id: number;                   // Plugin identifier.
+  name: string;                 // Plugin name used for installation and matching.
+  author: string;
+  description: string;
+  tags: string[];               // The exact tag "root" triggers a full-access warning.
+  image_url: string;            // Plugin image address.
+  versions: {                   // Latest/default version first.
+    name: string;               // Version label.
+    hash: string;               // Archive SHA-256 digest.
+    artifact?: string | null;   // Optional; absent/null selects fallback.
+  }[];
+}[];
 ```
 
 `artifact` is optional. It is absent from the official Store response schema and lets custom stores supply archive URLs.
@@ -86,16 +80,16 @@ No query parameters or request body are sent.
 
 ### Response
 
-A JSON object keyed by exact plugin name is expected. Each value contains the latest version name and archive hash, with an optional third element for a custom-store archive URL. The schema below uses type placeholders and comments; it is not a literal JSON response.
+A JSON object keyed by exact plugin name is expected. Each value contains the latest version name and archive hash, with an optional third element for a custom-store archive URL. The schema below is a TypeScript type declaration, not a literal JSON response.
 
 ```typescript
-{
+type Response = {
   [plugin_name: string]: [
-    version: string,     // Latest version label.
-    hash: string,        // Archive SHA-256 digest.
-    artifact?: string   // Optional custom-store archive URL.
+    version: string,           // Latest version label.
+    hash: string,              // Archive SHA-256 digest.
+    artifact?: string | null   // Optional custom-store archive URL.
   ];
-}
+} | null;
 ```
 
 The official Store emits only the first two elements. An absent or null third element selects the same hardcoded CDN fallback as catalog versions; an empty string does not. A null response or a missing plugin entry produces no update for that plugin.

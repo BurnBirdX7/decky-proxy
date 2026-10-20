@@ -53,32 +53,26 @@ CORS permits the browser origin `https://steamloopback.host`, credentials, all m
 The body is an array of plugin objects. No matches return `[]`.
 
 ```typescript
-[
-  {
-    "id": integer,                  // Plugin ID
-    "name": string,                 // Plugin name
-    "author": string,
-    "description": string,
-    "tags": [string],               // Ordered by tag text
-    "versions": [                   // Ordered by creation time, newest first
-      {
-        "name": string,             // Version name; semantic-version syntax is not required
-        "hash": string,             // Package hash; format is not constrained by the schema
-        "created": string,          // Date-time
-        "downloads": integer,       // Version download counter
-        "updates": integer          // Version update counter
-      },
-      // ...
-    ],
-    "visible": boolean,             // Catalog visibility
-    "image_url": string,            // Image URL
-    "downloads": integer | null,    // Sum of version download counters
-    "updates": integer | null,      // Sum of version update counters
-    "created": string | null,       // Earliest version creation time (date-time)
-    "updated": string | null        // Latest version creation time (date-time)
-  },
-  // ...
-]
+type Response = {
+  id: number;                   // Plugin ID (integer)
+  name: string;                 // Plugin name
+  author: string;
+  description: string;
+  tags: string[];               // Ordered by tag text
+  versions: {                  // Ordered by creation time, newest first
+    name: string;              // Version name; semantic-version syntax is not required
+    hash: string;              // Package hash; format is not constrained by the schema
+    created: string;           // Date-time
+    downloads: number;         // Version download counter (integer)
+    updates: number;           // Version update counter (integer)
+  }[];
+  visible: boolean;             // Catalog visibility
+  image_url: string;            // Image URL
+  downloads: number | null;     // Sum of version download counters (integer)
+  updates: number | null;       // Sum of version update counters (integer)
+  created: string | null;       // Earliest version creation time (date-time)
+  updated: string | null;       // Latest version creation time (date-time)
+}[];
 ```
 
 **Notes**
@@ -128,12 +122,12 @@ CORS permits the browser origin `https://steamloopback.host`, credentials, all m
 
 **Schema**
 
-The body is an object keyed by exact plugin name. Each value is a two-element array containing the latest version name and package hash. The schema below uses type placeholders; it is not a literal JSON response.
+The body is an object keyed by exact plugin name. Each value is a two-element array containing the latest version name and package hash. The schema below is a TypeScript type declaration, not a literal JSON response.
 
 ```typescript
-{
+type Response = {
   [plugin_name: string]: [version: string, hash: string];
-}
+} | null;
 ```
 
 **Notes**
