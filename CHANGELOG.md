@@ -1,3 +1,9 @@
+## v1.0.1 (2026-10-20)
+
+### Fix
+
+- add upstream response status logging
+
 ## v1.0.0 (2026-10-20)
 
 ### Feat
