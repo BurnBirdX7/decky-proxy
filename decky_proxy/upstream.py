@@ -66,9 +66,12 @@ class UpstreamClient:
         headers = {"X-Decky-Version": decky_version} if decky_version is not None else {}
         return await self.__fetch_buffered("GET", url, headers)
 
-    async def post_install_increment(self, plugin_name: str, version_name: str, is_update: bool) -> StoreResponse:
+    async def post_install_increment(
+        self, plugin_name: str, version_name: str, is_update: bool, decky_version: str | None = None
+    ) -> StoreResponse:
         url = UpstreamClient.__build_increment_url(plugin_name, version_name, is_update)
-        return await self.__fetch_buffered("POST", url)
+        headers = {"X-Decky-Version": decky_version} if decky_version is not None else {}
+        return await self.__fetch_buffered("POST", url, headers)
 
     async def get_resource_with_redirects(self, url: URL) -> aiohttp.ClientResponse:
         """Return an open response for streaming, following up to 10 validated redirects."""

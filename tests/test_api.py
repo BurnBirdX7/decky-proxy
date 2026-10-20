@@ -126,7 +126,7 @@ class ApiTests(unittest.TestCase):
         self.session.results.append(FakeResponse.catalogue([]))
         self.assertEqual(self.client.get("/plugins").status_code, 200)
         self.assertEqual(self.session.requests[0].url.query["hidden"], "false")
-        self.assertEqual(self.session.requests[0].url.query["sort_direction"], "desc")
+        self.assertEqual(self.session.requests[0].url.query["sort_direction"], "asc")
         self.assertNotIn("sort_by", self.session.requests[0].url.query)
         self.assertEqual(self.client.get("/plugins?sort_by=invalid").status_code, 422)
         self.assertEqual(len(self.session.requests), 1)
@@ -163,13 +163,20 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(str(self.session.requests[0].url), ARTIFACT_URL)
 
     def test_install_statistics_preserve_success_and_error_responses(self):
-        for status in (200, 404, 429):
-            with self.subTest(status=status):
-                self.session.results.append(FakeResponse(status=status, headers={"Retry-After": "42"}))
-                response = self.client.post("/plugins/Test%20Plugin/versions/1.0.0/increment?isUpdate=false")
-                self.assertEqual((response.status_code, response.content), (status, b""))
+        for status, decky_version in ((200, None), (200, "v3.3.0"), (404, "v3.3.0"), (426, "v3.2.10"), (429, "v3.3.0")):
+            with self.subTest(status=status, decky_version=decky_version):
+                content = b"Unsupported loader version, please upgrade." if status == 426 else b""
+                self.session.results.append(
+                    FakeResponse(content, status, {"Retry-After": "42", "Content-Type": "text/plain"})
+                )
+                headers = {"X-Decky-Version": decky_version} if decky_version is not None else {}
+                response = self.client.post(
+                    "/plugins/Test%20Plugin/versions/1.0.0/increment?isUpdate=false", headers=headers
+                )
+                self.assertEqual((response.status_code, response.content), (status, content))
                 self.assertEqual(response.headers["retry-after"], "42")
                 self.assertEqual(self.session.requests[-1].url.query["isUpdate"], "false")
+                self.assertEqual(self.session.requests[-1].options["headers"].get("X-Decky-Version"), decky_version)
 
     def test_invalid_resources_return_bad_request_without_upstream_request(self):
         for path in (

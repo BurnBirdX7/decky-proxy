@@ -31,7 +31,7 @@ class CatalogueQuery(BaseModel):
     tags: list[str] = Field(default_factory=list)
     hidden: bool = False
     sort_by: Literal["name", "date", "downloads"] | None = None
-    sort_direction: Literal["asc", "desc"] = "desc"
+    sort_direction: Literal["asc", "desc"] = "asc"
 
     def to_parameters(self) -> dict[str, str | list[str]]:
         parameters: dict[str, str | list[str]] = self.model_dump(exclude_none=True)
@@ -94,10 +94,15 @@ async def plugins(
 @store_api.post("/plugins/{plugin_name}/versions/{version_name}/increment")
 @limiter.limit(RATE_LIMIT)
 async def increment(
-    request: Request, plugin_name: str, version_name: str, client: Client, isUpdate: bool = True
+    request: Request,
+    plugin_name: str,
+    version_name: str,
+    client: Client,
+    isUpdate: bool = True,
+    decky_version: Annotated[str | None, Header(alias="X-Decky-Version")] = None,
 ) -> Response:
     """Relay installation statistics to the upstream store."""
-    response = await client.post_install_increment(plugin_name, version_name, isUpdate)
+    response = await client.post_install_increment(plugin_name, version_name, isUpdate, decky_version)
     return response.to_response()
 
 
