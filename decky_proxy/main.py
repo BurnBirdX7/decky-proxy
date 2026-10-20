@@ -1,3 +1,4 @@
+from html import escape
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -38,7 +39,14 @@ class CatalogueQuery(BaseModel):
         return parameters
 
 
-HOME_HTML = Path(__file__).with_name("home.html").read_text(encoding="utf-8").replace("{{VERSION}}", constants.VERSION)
+HOME_HTML = (
+    Path(__file__)
+    .with_name("home.html")
+    .read_text(encoding="utf-8")
+    .replace("{{VERSION}}", escape(constants.VERSION))
+    .replace("{{STORE_URL}}", escape(constants.STORE_URL))
+    .replace("{{PROXY_URL}}", escape(f"https://{constants.DOMAIN}/plugins"))
+)
 
 Client = Annotated[UpstreamClient, Depends(get_upstream_client)]
 app = FastAPI(title="Decky Proxy", version=constants.VERSION, lifespan=lifespan)

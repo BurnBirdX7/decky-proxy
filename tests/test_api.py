@@ -43,10 +43,15 @@ class ApiTests(unittest.TestCase):
             response = self.client.get("/")
             self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers["content-type"])
-        self.assertIn("Decky Proxy " + main.constants.VERSION, response.text)
-        self.assertNotIn("{{VERSION}}", response.text)
-        for link in ("https://github.com/BurnBirdX7/decky-proxy", "/docs", "/plugins"):
+        self.assertIn("Decky Proxy v" + main.constants.VERSION, response.text)
+        for placeholder in ("{{VERSION}}", "{{STORE_URL}}", "{{PROXY_URL}}"):
+            self.assertNotIn(placeholder, response.text)
+        proxy_url = f"https://{main.constants.DOMAIN}/plugins"
+        for url in (main.constants.STORE_URL, proxy_url):
+            self.assertIn(f'<code>{url}</code> • <a href="{url}">Open</a>', response.text)
+        for link in ("https://github.com/BurnBirdX7/decky-proxy", "/docs"):
             self.assertIn(f'href="{link}"', response.text)
+        labels = ("Upstream catalogue", "Proxy catalogue", "Interactive API", "Source code")
         schema = self.client.get("/openapi.json").json()
         self.assertEqual(schema["info"]["version"], main.constants.VERSION)
         self.assertNotIn("/", schema["paths"])

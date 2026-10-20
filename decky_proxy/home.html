@@ -1,13 +1,44 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Decky Proxy</title></head>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Decky Proxy</title>
+  <style>
+    body { max-width: 52rem; margin: 3rem auto; padding: 0 1rem; color: #222; font-family: system-ui, sans-serif; line-height: 1.5; }
+    h1 { margin: 0 0 .5rem; }
+    p { margin: 0 0 1.75rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 1rem 1.25rem; border: 1px solid #ddd; text-align: left; overflow-wrap: anywhere; }
+    th { width: 30%; background: #f3f3f3; font-weight: 600; }
+    a { color: #1559ad; text-underline-offset: .2em; }
+    code { padding: .15em .35em; border-radius: .2rem; background: #f3f3f3; font-size: .95em; }
+  </style>
+</head>
 <body>
-<h1>Decky Proxy {{VERSION}}</h1>
-<p>A proxy of the Decky Plugin Store catalogue and resources.</p>
-<ul>
-<li><a href="https://github.com/BurnBirdX7/decky-proxy">Repository</a></li>
-<li><a href="/docs">API documentation</a></li>
-<li><a href="/plugins">Plugin catalogue</a></li>
-</ul>
+  <main>
+    <h1>Decky Proxy v{{VERSION}}</h1>
+    <p>A proxy for the Decky Plugin Store catalogue and resources.</p>
+    <table aria-label="Proxy information">
+      <tbody>
+        <tr>
+          <th scope="row">Proxy catalogue</th>
+          <td><code>{{PROXY_URL}}</code> • <a href="{{PROXY_URL}}">Open</a></td>
+        </tr>
+        <tr>
+          <th scope="row">Upstream catalogue</th>
+          <td><code>{{STORE_URL}}</code> • <a href="{{STORE_URL}}">Open</a></td>
+        </tr>
+        <tr>
+          <th scope="row">Interactive API</th>
+          <td><a href="/docs">/docs</a></td>
+        </tr>
+        <tr>
+          <th scope="row">Source code</th>
+          <td>GitHub • <a href="https://github.com/BurnBirdX7/decky-proxy">BurnBirdX7/decky-proxy</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </main>
 </body>
 </html>
