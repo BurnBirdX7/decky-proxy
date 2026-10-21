@@ -1,3 +1,14 @@
+## v1.1.0 (2026-10-21)
+
+### Feat
+
+- added support for the new `/plugin/version` handle
+
+### Fix
+
+- correct type annotation
+- align store handlers with updated Decky API
+
 ## v1.0.1 (2026-10-20)
 
 ### Fix
