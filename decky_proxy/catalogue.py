@@ -56,7 +56,7 @@ def substitute__versions_dict(content: bytes) -> dict[str, list[str]] | None:
         raise InvalidCatalogueError("Invalid upstream versions") from error
 
 
-def substitute__version_tuple(version_tuple: list[str]) -> list[str]:
+def substitute__version_tuple(version_tuple: list[str | None]) -> list[str]:
     if (
         not isinstance(version_tuple, list)
         or len(version_tuple) not in (2, 3)
