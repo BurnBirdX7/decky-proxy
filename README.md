@@ -19,7 +19,12 @@ A simple proxy for the Decky Plugin Store catalogue and resources.
   > 
   > This is needed to route resource traffic through the proxy.
 
-- `POST /plugins/{plugin_name}/versions/{version_name}/increment` — relay installation statistics.\
+- `GET /plugins/versions` — relay the latest plugin versions and substitute artifact URLs.
+  > **The proxy modifies the response**.
+  > Artifact URLs are replaced with links to the proxy's _Resource API_.
+  > For plugin versions that have no artifact URL, the proxy generates an artifact URL from the version's hash.
+
+- `POST /plugins/{plugin_name}/versions/{version_name}/increment` — relay installation statistics.
   > Forwards the plugin name, version, and `isUpdate` flag to the upstream store.
 
 ### Resource API
