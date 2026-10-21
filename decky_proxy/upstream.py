@@ -63,14 +63,19 @@ class UpstreamClient:
 
     async def get_catalogue(self, parameters: dict[str, str | list[str]], decky_version: str | None) -> StoreResponse:
         url = parse_url(constants.STORE_URL).with_query(parameters)
-        headers = {"X-Decky-Version": decky_version} if decky_version is not None else {}
+        headers = self.__make_headers(decky_version)
+        return await self.__fetch_buffered("GET", url, headers)
+
+    async def get_versions(self, decky_version: str | None) -> StoreResponse:
+        url = parse_url(f"{constants.STORE_URL}/versions")
+        headers = self.__make_headers(decky_version)
         return await self.__fetch_buffered("GET", url, headers)
 
     async def post_install_increment(
         self, plugin_name: str, version_name: str, is_update: bool, decky_version: str | None = None
     ) -> StoreResponse:
-        url = UpstreamClient.__build_increment_url(plugin_name, version_name, is_update)
-        headers = {"X-Decky-Version": decky_version} if decky_version is not None else {}
+        url = self.__build_increment_url(plugin_name, version_name, is_update)
+        headers = self.__make_headers(decky_version)
         return await self.__fetch_buffered("POST", url, headers)
 
     async def get_resource_with_redirects(self, url: URL) -> aiohttp.ClientResponse:
@@ -79,13 +84,13 @@ class UpstreamClient:
             response = await self.__fetch_streaming(url)
             if response.status not in REDIRECT_STATUSES:
                 return response
-            url = UpstreamClient.__resolve_redirect(response, redirect_count)
+            url = self.__resolve_redirect(response, redirect_count)
         raise RedirectLimitError("Upstream exceeded the resource redirect limit")
 
     async def __fetch_buffered(self, method: str, url: URL, headers: dict[str, str] | None = None) -> StoreResponse:
         """Read the complete response body and close the upstream response."""
         validate_destination(url)
-        with UpstreamClient.__translate_upstream_errors():
+        with self.__translate_upstream_errors():
             async with self.session.request(
                 method, url, headers={**(headers or {}), "Via": self.via}, allow_redirects=False, auto_decompress=True
             ) as response:
@@ -96,10 +101,14 @@ class UpstreamClient:
 
     async def __fetch_streaming(self, url: URL) -> aiohttp.ClientResponse:
         validate_destination(url)
-        with UpstreamClient.__translate_upstream_errors():
+        with self.__translate_upstream_errors():
             return await self.session.request(
                 "GET", url, headers={"Via": self.via}, allow_redirects=False, auto_decompress=False
             )
+
+    @staticmethod
+    def __make_headers(decky_version: str | None):
+        return {"X-Decky-Version": decky_version} if decky_version is not None else {}
 
     @staticmethod
     def __build_increment_url(plugin_name: str, version_name: str, is_update: bool) -> URL:

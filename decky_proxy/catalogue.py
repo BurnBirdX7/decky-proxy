@@ -6,6 +6,7 @@ from typing import Any
 
 from yarl import URL
 
+from . import constants
 from .errors import InvalidCatalogueError, InvalidResourceError
 from .resource_signing import sign_resource_token
 from .security import parse_url
@@ -14,48 +15,76 @@ SHA256_PATTERN = r"[0-9a-fA-F]{64}"
 BASE64URL_PATTERN = r"(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2}==|[A-Za-z0-9_-]{3}=)?"
 
 
-def substitute_catalogue_resource_urls(content: bytes, domain: str) -> list[dict[str, Any]]:
+def substitute__plugins_list(content: bytes) -> list[dict[str, Any]]:
     try:
         catalogue = json.loads(content)
         if not isinstance(catalogue, list):
             raise TypeError("Expected a catalogue array")
-        return [substitute_plugin_resource_urls(plugin, domain) for plugin in catalogue]
+        return [substitute__plugin(plugin) for plugin in catalogue]
     except (ValueError, KeyError, TypeError, InvalidResourceError) as error:
         raise InvalidCatalogueError("Invalid upstream catalogue") from error
 
 
-def substitute_plugin_resource_urls(plugin: dict[str, Any], domain: str) -> dict[str, Any]:
+def substitute__plugin(plugin: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(plugin, dict) or not isinstance(plugin.get("versions"), list):
         raise InvalidCatalogueError("Invalid upstream plugin")
     substituted_plugin = dict(plugin)
-    substituted_plugin["versions"] = [
-        substitute_version_artifact_url(version, domain) for version in plugin["versions"]
-    ]
-    substituted_plugin["image_url"] = build_resource_url(plugin["image_url"], domain)
+    substituted_plugin["versions"] = [substitute__plugin_version(version) for version in plugin["versions"]]
+    substituted_plugin["image_url"] = make_base64_url(plugin["image_url"])
     return substituted_plugin
 
 
-def substitute_version_artifact_url(version: dict[str, Any], domain: str) -> dict[str, Any]:
+def substitute__plugin_version(version: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(version, dict):
         raise InvalidCatalogueError("Invalid upstream version")
     substituted_version = dict(version)
-    substituted_version["artifact"] = build_proxy_artifact_url(version, domain)
+    substituted_version["artifact"] = make_artifact_url(version["hash"], version.get("artifact"))
     return substituted_version
 
+def substitute__versions_dict(content: bytes) -> dict[str, list[str]] | None:
+    try:
+        version_dict = json.loads(content)
+        if version_dict is None:
+            return None
+        if not isinstance(version_dict, dict):
+            raise TypeError("Expected a versions object")
+        return {
+            name: substitute__version_tuple(version_tuple)
+            for name, version_tuple in version_dict.items()
+        }
+    except (ValueError, KeyError, TypeError, InvalidResourceError) as error:
+        raise InvalidCatalogueError("Invalid upstream versions") from error
 
-def build_proxy_artifact_url(version: dict[str, Any], domain: str) -> str:
-    artifact = version.get("artifact")
+
+def substitute__version_tuple(version_tuple: list[str]) -> list[str]:
+    if (
+        not isinstance(version_tuple, list)
+        or len(version_tuple) not in (2, 3)
+        or not all(isinstance(value, str) for value in version_tuple[:2])
+    ):
+        raise TypeError("Invalid upstream version tuple")
+
+    version_number, hash_ = version_tuple[:2]
+    artifact = version_tuple[2] if len(version_tuple) == 3 else None
+    new_artifact = make_artifact_url(hash_, artifact)
+    return [version_number, hash_, new_artifact]
+
+def make_artifact_url(hash_: str, artifact: str | None) -> str:
     if artifact is not None:
-        return build_resource_url(artifact, domain)
-    validate_archive_hash(version["hash"])
-    return f"https://{domain}/resources/hash/{version['hash']}"
+        return make_base64_url(artifact)
+    return make_hash_url(hash_)
 
 
-def build_resource_url(url: str, domain: str) -> str:
+def make_hash_url(hash_: str) -> str:
+    validate_archive_hash(hash_)
+    return f"https://{constants.DOMAIN}/resources/hash/{hash_}"
+
+
+def make_base64_url(url: str) -> str:
     parse_url(url)  # Called to validate the resource URL.
     base64url = encode_resource_url(url)
     signature = sign_resource_token(base64url)
-    return f"https://{domain}/resources/base64/{base64url}.{signature}"
+    return f"https://{constants.DOMAIN}/resources/base64/{base64url}.{signature}"
 
 
 def encode_resource_url(url: str) -> str:

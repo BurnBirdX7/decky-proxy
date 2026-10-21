@@ -10,7 +10,7 @@ with patch.dict(os.environ, TEST_ENVIRONMENT):
     from decky_proxy.catalogue import (
         decode_resource_url,
         encode_resource_url,
-        substitute_catalogue_resource_urls,
+        substitute__plugins_list,
     )
     from decky_proxy.resource_signing import sign_resource_token
 
@@ -19,7 +19,7 @@ from decky_proxy.errors import InvalidCatalogueError, InvalidResourceError
 
 class CatalogueTests(unittest.TestCase):
     def substitute(self, catalogue):
-        return substitute_catalogue_resource_urls(json.dumps(catalogue).encode(), "proxy.example")
+        return substitute__plugins_list(json.dumps(catalogue).encode())
 
     def test_missing_and_null_artifacts_use_hash_routes(self):
         versions = [
@@ -84,7 +84,7 @@ class CatalogueTests(unittest.TestCase):
                 self.subTest(content=content),
                 self.assertRaises(InvalidCatalogueError),
             ):
-                substitute_catalogue_resource_urls(content, "proxy.example")
+                substitute__plugins_list(content)
 
     def test_empty_artifacts_and_invalid_image_urls_are_rejected(self):
         for artifact in ("", "ftp://downloads.example/file", 123):

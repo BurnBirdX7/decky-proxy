@@ -1,3 +1,4 @@
+import json
 import os
 import unittest
 from types import SimpleNamespace
@@ -131,6 +132,68 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/plugins?sort_by=invalid").status_code, 422)
         self.assertEqual(len(self.session.requests), 1)
 
+    def test_versions_proxy_artifacts_and_forward_version_header(self):
+        versions = {
+            "Test Plugin": ["1.2.3", ARCHIVE_HASH],
+            "Custom": ["2.0.0", "b" * 64, ARTIFACT_URL],
+            "Null artifact": ["3.0.0", "c" * 64, None],
+        }
+        self.session.results.append(FakeResponse.catalogue(versions))
+        response = self.client.get("/plugins/versions", headers={"X-Decky-Version": "v3.3.0"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "Test Plugin": ["1.2.3", ARCHIVE_HASH, "https://proxy.example/resources/hash/" + ARCHIVE_HASH],
+                "Custom": [
+                    "2.0.0", "b" * 64, "https://proxy.example/resources/base64/" + signed_resource_token(ARTIFACT_URL)
+                ],
+                "Null artifact": ["3.0.0", "c" * 64, "https://proxy.example/resources/hash/" + "c" * 64],
+            },
+        )
+        request = self.session.requests[0]
+        self.assertEqual(request.method, "GET")
+        self.assertEqual(str(request.url), "https://store.example/custom/catalogue/versions")
+        self.assertEqual(request.options["headers"], {"X-Decky-Version": "v3.3.0", "Via": "1.1 proxy.example"})
+
+    def test_versions_preserve_empty_and_null_responses_without_version_header(self):
+        for versions in ({}, None):
+            with self.subTest(versions=versions):
+                self.session.results.append(FakeResponse.catalogue(versions))
+                response = self.client.get("/plugins/versions")
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json(), versions)
+                self.assertNotIn("X-Decky-Version", self.session.requests[-1].options["headers"])
+
+    def test_versions_preserve_upstream_error_responses(self):
+        for status in (426, 429):
+            with self.subTest(status=status):
+                content = b"Unsupported loader version, please upgrade." if status == 426 else b"rate limited"
+                self.session.results.append(
+                    FakeResponse(content, status, {"Content-Type": "text/plain", "Retry-After": "42"})
+                )
+                response = self.client.get("/plugins/versions", headers={"X-Decky-Version": "v3.2.10"})
+                self.assertEqual((response.status_code, response.content), (status, content))
+                self.assertEqual(response.headers["content-type"], "text/plain")
+                self.assertEqual(response.headers["retry-after"], "42")
+
+    def test_invalid_versions_return_bad_gateway(self):
+        invalid = [
+            b"not json",
+            [],
+            {"Plugin": None},
+            {"Plugin": ["1"]},
+            {"Plugin": [1, 2]},
+            {"Plugin": ["1", "bad hash"]},
+            {"Plugin": ["1", ARCHIVE_HASH, "file:///tmp/plugin.zip"]},
+        ]
+        for versions in invalid:
+            with self.subTest(versions=versions):
+                main.limiter.reset()
+                content = versions if isinstance(versions, bytes) else json.dumps(versions).encode()
+                self.session.results.append(FakeResponse(content))
+                self.assertEqual(self.client.get("/plugins/versions").status_code, 502)
+
     def test_hash_resource_uses_documented_cdn_path_and_streams_archive(self):
         archive = b"PK\x03\x04unchanged"
         reply = FakeResponse(
@@ -254,6 +317,7 @@ class ApiTests(unittest.TestCase):
     def test_all_handlers_limit_repeated_requests_before_contacting_upstream(self):
         cases = (
             ("GET", "/plugins", lambda: FakeResponse.catalogue([])),
+            ("GET", "/plugins/versions", lambda: FakeResponse.catalogue({})),
             ("POST", "/plugins/Test/versions/1/increment", FakeResponse),
             ("GET", "/resources/hash/" + ARCHIVE_HASH, FakeResponse),
             ("GET", "/resources/base64/" + signed_resource_token(IMAGE_URL), FakeResponse),

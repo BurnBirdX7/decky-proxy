@@ -17,7 +17,7 @@ A simple proxy for the Decky Plugin Store catalogue and resources.
   > All artifact and image URLs are replaced with links to the proxy's _Resource API_.
   > For plugin versions whose `artifact` field is missing or `null`, the proxy generates an artifact URL from the version's hash.
   > 
-  > This is needed to direct resource traffic through the proxy.
+  > This is needed to route resource traffic through the proxy.
 
 - `POST /plugins/{plugin_name}/versions/{version_name}/increment` — relay installation statistics.\
   > Forwards the plugin name, version, and `isUpdate` flag to the upstream store.

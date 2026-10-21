@@ -13,7 +13,8 @@ from . import constants
 from .catalogue import (
     build_archive_url,
     decode_resource_url,
-    substitute_catalogue_resource_urls,
+    substitute__plugins_list,
+    substitute__versions_dict,
 )
 from .errors import ProxyError
 from .rate_limit import RATE_LIMIT, limiter
@@ -87,7 +88,22 @@ async def plugins(
     response = await client.get_catalogue(parameters.to_parameters(), decky_version)
     if response.status != 200:
         return response.to_response()
-    return JSONResponse(substitute_catalogue_resource_urls(response.content, constants.DOMAIN))
+    content = substitute__plugins_list(response.content)
+    return JSONResponse(content)
+
+
+@store_api.get("/plugins/versions")
+@limiter.limit(RATE_LIMIT)
+async def plugin_versions(
+    request: Request,
+    client: Client,
+    decky_version: Annotated[str | None, Header(alias="X-Decky-Version")] = None,
+) -> Response:
+    response = await client.get_versions(decky_version)
+    if response.status != 200:
+        return response.to_response()
+    content = substitute__versions_dict(response.content)
+    return JSONResponse(content)
 
 
 # noinspection PyPep8Naming
